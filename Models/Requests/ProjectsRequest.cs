@@ -6,12 +6,16 @@ namespace Request.Models;
 
 public class ProjectsRequest
 {
-    public int id {get; set;}
+    public int Id {get; set;}
 
-    public string Name {get; set;}
+    public required string Name {get; set;}
 
-    public string Description {get; set;}
+    public string Description {get; set;} = string.Empty;
 
-    public string Owner {get; set;}
+    public required DateTime StartDate {get; set;}
+
+    public required DateTime EstimatedDate {get; set;}
+
+    public DateTime EndDate {get; set;}
 
 }

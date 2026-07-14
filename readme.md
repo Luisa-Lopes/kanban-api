@@ -1,11 +1,11 @@
 # Criar Migrations
 
-dotnet ef migrations "mensagem"
+dotnet ef migrations add mensagem
 
-# Atualizar bando de dados aós uma migration
+# Atualizar bando de dados após uma migration
 
 dotnet ef database update
 
-# Build and run
+# Run project
 
 dotnet watch run

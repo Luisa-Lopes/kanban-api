@@ -1,4 +1,6 @@
 
+using System.Security.Claims;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
@@ -21,15 +23,32 @@ public class ProjectsController: ControllerBase
 
 
     #region GetProjects
+    [Authorize]
     [HttpGet]
-    public async Task<ActionResult<List<ProjectsResponse>>> GetProjects()
+    public async Task<ActionResult<Response<List<ProjectsResponse>>>> GetProjects()
     {
-        List<ProjectsResponse> projects = await _projectsService.GetProjects();
+
+        Response<List<ProjectsResponse>> response = new Response<List<ProjectsResponse>>();
+
+        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+
+             if(userId == null)
+        {
+            response.Dados = null;
+            response.Message = "Usuário não encontrado.";
+            response.Status = false;
+           
+            return Unauthorized(response);
+        }
+
+
+        List<ProjectsResponse> projects = await _projectsService.GetProjects(userId);
         return Ok(projects);
     }
     #endregion
 
-     #region CreateProject
+    #region CreateProject
+    [Authorize]
     [HttpPost]
     public async Task<IActionResult> CreateProject(
         ProjectsRequest request)
@@ -41,15 +60,29 @@ public class ProjectsController: ControllerBase
     #endregion
 
     #region UpdateProject
+    [Authorize]
     [HttpPut("{id}")]
     public async Task<IActionResult> UpdateProject(int id, ProjectsRequest request)
     {
-        if (request.id != 0 && request.id != id)
+        if (request.Id != 0 && request.Id != id)
         {
             return BadRequest("O id do corpo deve corresponder ao id da rota.");
         }
 
-        var update = await _projectsService.UpdateProject(id, request);
+        Response<List<ProjectsResponse>> response = new();
+
+        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+
+        if(userId == null)
+        {
+            response.Dados = null;
+            response.Message = "Usuário não encontrado.";
+            response.Status = false;
+           
+            return Unauthorized(response);
+        }
+
+        var update = await _projectsService.UpdateProject(id, request, userId);
         if (update is null)
         {
             return NotFound();
@@ -60,16 +93,31 @@ public class ProjectsController: ControllerBase
     #endregion
 
     #region DeleteProject
+    [Authorize]
     [HttpDelete("{id}")]
     public async Task<IActionResult> DeleteProject(int id)
     {
-        bool deleted = await _projectsService.DeleteProject(id);
-        if (!deleted)
+        Response<List<ProjectsResponse>> response = new Response<List<ProjectsResponse>>();
+
+        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+
+        if(userId == null)
         {
-            return NotFound();
+            response.Dados = null;
+            response.Message = "Usuário não encontrado.";
+            response.Status = false;
+           
+            return Unauthorized(response);
         }
 
-        return NoContent();
+        var deleted = await _projectsService.DeleteProject(id, userId);
+
+        if (!deleted.Status)
+        {
+            return BadRequest(deleted);
+        }
+
+        return Ok(deleted);
     }
     #endregion
 
