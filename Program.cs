@@ -32,15 +32,16 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 
 builder.Services.AddEndpointsApiExplorer();
 
-builder.Services.AddSwaggerGen(options =>
-{
-    options.AddSecurityDefinition("oauth2", new OpenApiSecurityScheme
+builder.Services.AddSwaggerGen(options =>{
+    
+    options.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
     {
-        
-        Description = "Standar Authorization header using the Bearer scheme (\"bearer {token}\")",
-        In = ParameterLocation.Header,
         Name = "Authorization",
-        Type = SecuritySchemeType.ApiKey
+        Type = SecuritySchemeType.Http,
+        Scheme = "bearer",
+        BearerFormat = "JWT",
+        In = ParameterLocation.Header,
+        Description = "Digite apenas o token JWT"
     });
 
     options.OperationFilter<SecurityRequirementsOperationFilter>();
@@ -62,22 +63,30 @@ builder.Services
     .AddEntityFrameworkStores<AppDbContext>()
     .AddDefaultTokenProviders();
 
-builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme).AddJwtBearer(options =>
-{
-    var tokenKey = builder.Configuration["AppSettings:Token"];
-    if (string.IsNullOrEmpty(tokenKey))
+builder.Services
+    .AddAuthentication(options =>
     {
-        throw new InvalidOperationException("JWT token key is not configured in AppSettings:Token");
-    }
+        options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+        options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+        options.DefaultScheme = JwtBearerDefaults.AuthenticationScheme;
+    })
+    .AddJwtBearer(options =>
+    {
+        var tokenKey = builder.Configuration["AppSettings:Token"];
 
-    options.TokenValidationParameters = new TokenValidationParameters
-    {
-        ValidateIssuerSigningKey = true,
-        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(tokenKey)),
-        ValidateAudience = false,
-        ValidateIssuer = false
-    };
-});  // Verifica quem é o user
+        options.TokenValidationParameters = new TokenValidationParameters
+        {
+            ValidateIssuerSigningKey = true,
+            IssuerSigningKey = new SymmetricSecurityKey(
+                Encoding.UTF8.GetBytes(tokenKey!)),
+            ValidateIssuer = false,
+            ValidateAudience = false,
+            ValidateLifetime = true,
+            ClockSkew = TimeSpan.Zero
+        };
+    });  // Verifica quem é o user
+
+
 builder.Services.AddAuthorization(); // Verifica se tem a permissão para acessar a funcionalidade
 
 var app = builder.Build();

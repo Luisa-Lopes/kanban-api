@@ -16,9 +16,12 @@ public class ProjectsService
     
     private readonly AppDbContext _dbContext;
 
-    public ProjectsService (AppDbContext dbContext)
+    private readonly ProjectMembersService _projectsMembersService;
+
+    public ProjectsService (AppDbContext dbContext,ProjectMembersService projectsMembersService)
     {
          _dbContext = dbContext;
+         _projectsMembersService = projectsMembersService;
         
     }
 
@@ -40,32 +43,106 @@ public class ProjectsService
             .ToListAsync();
     }
 
-    public async Task<ProjectsResponse> CreateProject(
-        ProjectsRequest request)
+    public async Task<Response<ProjectResponse>> GetProject(int projectId)
     {
-        var project = new Projects
+         Response<ProjectResponse> response = new();
+        try
         {
-            Name = request.Name,
-            Description = request.Description,
-            StartDate = request.StartDate,
-            EstimatedDate = request.EstimatedDate,
-            EndDate = request.EndDate
+             response.Dados =  await _dbContext.Projects
+                .Include(f => f.Members)
+                .ThenInclude(pm => pm.User)
+                .Where(p => p.Id == projectId)
+                .Select(r => new ProjectResponse
+                {
+                    id = r.Id,
+                    Name = r.Name,
+                    Description = r.Description,
+                    StartDate = r.StartDate,
+                    EstimatedDate = r.EstimatedDate,
+                    EndDate = r.EndDate,
+                    Members = r.Members.Select(m => new ProjectMembersResponse
+                    {
+                        Id = m.Id,
+                        ProjectId = m.ProjectId,
+                        User = new UserResponse
+                        {
+                            Id = m.User.Id,
+                            FirstName = m.User.FirstName,
+                            LastName = m.User.LastName,
+                            Email = m.User.Email!
+                        },
+                        JoinedAt = m.JoinedAt,
+                        Role = m.Role
+                    }).ToList()
+            }).FirstOrDefaultAsync();
 
-        };
+            return response;   
 
-        _dbContext.Projects.Add(project);
-
-        await _dbContext.SaveChangesAsync();
-
-        return new ProjectsResponse
+        }
+        catch (Exception ex)
         {
-            id = project.Id,
-            Name = project.Name,
-            Description = project.Description,
-            StartDate = project.StartDate,
-            EstimatedDate = project.EstimatedDate,
-            EndDate = project.EndDate
-        };
+            response.Status = false;
+            response.StatusCode = StatusCodes.Status417ExpectationFailed;
+            response.Message = ex.Message;
+
+            return response;
+        }
+       
+    }
+
+    public async Task<Response<ProjectsResponse>> CreateProject(
+        ProjectsRequest request, string userEmail)
+    {
+
+        Response<ProjectsResponse> response = new();
+
+        try
+        {
+             var project = new Projects
+                {
+                    Name = request.Name,
+                    Description = request.Description,
+                    StartDate = request.StartDate,
+                    EstimatedDate = request.EstimatedDate,
+                    EndDate = request.EndDate
+
+                };
+
+                _dbContext.Projects.Add(project);
+
+                await _dbContext.SaveChangesAsync();
+
+                var projectMember = new ProjectMembersRequest
+                {
+                    ProjectId = project.Id,
+                    Email = userEmail,
+                    Role = ProjectRole.Owner
+                };
+
+               await _projectsMembersService.CreateProjectOwner(projectMember);
+
+
+                response.Dados =  new ProjectsResponse
+                {
+                    id = project.Id,
+                    Name = project.Name,
+                    Description = project.Description,
+                    StartDate = project.StartDate,
+                    EstimatedDate = project.EstimatedDate,
+                    EndDate = project.EndDate
+                };
+
+                return response;
+
+            }
+        catch (Exception ex)
+        {
+            response.Status = false;
+            response.StatusCode = StatusCodes.Status417ExpectationFailed;
+            response.Message = ex.InnerException?.Message ?? ex.Message;
+
+            return response;
+        }
     }
 
     public async Task<Response<ProjectsResponse>> UpdateProject(int id, ProjectsRequest request, string userId)
@@ -160,7 +237,7 @@ public class ProjectsService
             return member;
         }
 
-         public async Task ValidateMemberPermission(string userId, int projectId)
+    public async Task ValidateMemberPermission(string userId, int projectId)
     {
         var member = await GetProjectMember(userId, projectId);
 
@@ -170,5 +247,7 @@ public class ProjectsService
             throw new ForbiddenException("Você não possui permissão de edição do projeto.");
         }
     }
+
+
 
 }

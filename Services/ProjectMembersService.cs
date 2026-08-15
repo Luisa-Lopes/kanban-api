@@ -48,11 +48,12 @@ public class ProjectMembersService
         {
             Id = x.Id,
             ProjectId = x.ProjectId,
-            User = new UserResponse { 
+            User = new UserResponse
+            {
+                Id = x.User.Id,
                 FirstName = x.User.FirstName,
                 LastName = x.User.LastName,
-                Email = x.User.Email!,
-                Id = x.User.Id,
+                Email = x.User.Email!
             },
             JoinedAt = x.JoinedAt,
             Role = x.Role
@@ -84,12 +85,12 @@ public class ProjectMembersService
                 return response;
             }
 
-            var projectMember = new ProjectMembers
+           var projectMember = new ProjectMembers
             {
                 ProjectId = request.ProjectId,
                 UserId = userInfo.Id,
-                InvitationSent = DateTime.Now,
-                JoinedAt = DateTime.Now,
+                InvitationSent = DateTime.UtcNow,
+                JoinedAt = DateTime.UtcNow,
                 Role = ProjectRole.Owner
             };
 
@@ -102,6 +103,7 @@ public class ProjectMembersService
                 ProjectId = projectMember.ProjectId,
                 User = new UserResponse
                 {
+                    Id = userInfo.Id,
                     FirstName = userInfo.FirstName,
                     LastName = userInfo.LastName,
                     Email = userInfo.Email!
@@ -156,6 +158,7 @@ public class ProjectMembersService
             Role = projectMember.Role,
             User = new UserResponse
             {
+                Id = user.Id,
                 FirstName = user.FirstName,
                 LastName = user.LastName,
                 Email = user.Email!

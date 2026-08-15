@@ -22,10 +22,10 @@ public class ProjectsController: ControllerBase
     }
 
 
-    #region GetProjects
+    #region GetAllProjects
     [Authorize]
     [HttpGet]
-    public async Task<ActionResult<Response<List<ProjectsResponse>>>> GetProjects()
+    public async Task<ActionResult<Response<List<ProjectsResponse>>>> GetAllProjects()
     {
 
         Response<List<ProjectsResponse>> response = new Response<List<ProjectsResponse>>();
@@ -47,13 +47,54 @@ public class ProjectsController: ControllerBase
     }
     #endregion
 
+    #region GetProject
+    [Authorize]
+    [HttpGet("{projectId}")]
+    public async Task<ActionResult<Response<ProjectResponse>>> GetProject(int projectId)
+    {
+
+        Response<ProjectResponse> response = new Response<ProjectResponse>();
+
+        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+
+             if(userId == null)
+        {
+            response.Dados = null;
+            response.Message = "Usuário não encontrado.";
+            response.Status = false;
+           
+            return Unauthorized(response);
+        }
+
+
+        Response<ProjectResponse> projects = await _projectsService.GetProject(projectId);
+        return Ok(projects);
+    }
+    #endregion
+
     #region CreateProject
     [Authorize]
     [HttpPost]
     public async Task<IActionResult> CreateProject(
         ProjectsRequest request)
     {
-        ProjectsResponse project = await _projectsService.CreateProject(request);
+
+        Response<List<ProjectsResponse>> response = new();
+        
+        var userEmail = User.FindFirst(ClaimTypes.Email)?.Value;
+
+
+
+        if(userEmail == null)
+        {
+            response.Dados = null;
+            response.Message = "Usuário não encontrado.";
+            response.Status = false;
+           
+            return Unauthorized(response);
+        } 
+
+        Response<ProjectsResponse> project = await _projectsService.CreateProject(request, userEmail);
 
         return new OkObjectResult(project);
     }

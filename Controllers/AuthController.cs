@@ -1,7 +1,10 @@
 
 using System.Linq.Expressions;
+using System.Security.Claims;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
+using ProjectManager.Exceptions;
 using Response.Models;
 using Service;
 using Tables.Models;
@@ -29,11 +32,13 @@ public class AuthController: ControllerBase
 
 
     [HttpPost("register")]
-    public async Task<IActionResult> Register(RegisterDto register)
+    public async Task<Response<string>> Register(RegisterDto register)
     {
-        if (!ModelState.IsValid)
+        var userExists = await _userManager.FindByEmailAsync(register.Email);
+
+        if (userExists != null)
         {
-            return BadRequest(ModelState);
+            throw new ConflictException("Já existe um usuário cadastrado com este e-mail.");
         }
 
         var user = new ApplicationUser
@@ -42,73 +47,62 @@ public class AuthController: ControllerBase
             Email = register.Email,
             FirstName = register.FirstName,
             LastName = register.LastName,
-            JobTitle = register.JobTitle,
-            Bio = register.Bio
+            JobTitle = register.JobTitle ?? "",
+            Bio = register.Bio ?? ""
         };
 
         var result = await _userManager.CreateAsync(
             user,
-            register.Password
-        );
+            register.Password);
 
         if (!result.Succeeded)
         {
-            return BadRequest(result.Errors);
+            throw new BadRequestException(
+                string.Join(" ", result.Errors.Select(e => e.Description)));
         }
-        
-        return Ok(new
+
+        return new Response<string>
         {
-            Message = "Usuário criado com sucesso."
-        });
+            Message = "Usuário criado com sucesso.",
+            StatusCode = StatusCodes.Status200OK
+        };
     }
 
     [HttpPost("login")]
     public async Task<Response<string>> Login(LoginDto login)
     {
+        var user = await _userManager.FindByEmailAsync(login.Email);
 
-        Response<string> response = new Response<string>();
+        if (user == null)
+            throw new UnauthorizedException("Email ou senha inválidos.");
 
-        try
+        var result = await _signInManager.CheckPasswordSignInAsync(
+            user,
+            login.Password,
+            false);
+
+        if (!result.Succeeded)
+            throw new UnauthorizedException("Email ou senha inválidos.");
+
+        return new Response<string>
         {
-            var user = await _userManager.FindByEmailAsync(login.Email);
+            Dados = _tokenServices.CreateToken(user),
+            Message = "Login realizado com sucesso.",
+            StatusCode = StatusCodes.Status200OK
+        };
+    }
 
-            if (user == null)
-            {
-                response.Message = "Usuário não encontrado.";
-                response.Status = false;
-                return response;
-            }
-
-             var result = await _signInManager.CheckPasswordSignInAsync(
-                user,
-                login.Password,
-                false
-            );
-
-            
-            if (!result.Succeeded)
-            {
-                response.Message = "Email ou senha inválidos!";
-                response.Status = false;
-                return response;
-            }
-
-
-            var token =  _tokenServices.CreateToken(user);
-
-            response.Dados = token;
-
-            return response;
-            
-
-        }
-        catch(Exception ex){
-            response.Message = ex.Message;
-            response.Status = false;
-
-            return response;
-        }
-
+    [Authorize]
+    [HttpGet("token")]
+    public IActionResult validadeToken()
+    {
+        return Ok(new
+        {
+            Id = User.FindFirst(ClaimTypes.NameIdentifier)?.Value,
+            Email = User.FindFirst(ClaimTypes.Email)?.Value,
+            FirstName = User.FindFirst(ClaimTypes.GivenName)?.Value,
+            LastName = User.FindFirst(ClaimTypes.Surname)?.Value
+        });
     }
 
 

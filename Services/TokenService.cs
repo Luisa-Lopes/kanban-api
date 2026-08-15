@@ -2,6 +2,7 @@
 
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
+using System.Text;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.IdentityModel.Tokens;
 using ProjectManager.Data;
@@ -23,41 +24,32 @@ public class TokenServices
          _config = configuration;
     }
 
-    public string CreateToken (ApplicationUser user)
-    {
+    public string CreateToken(ApplicationUser user)
+            {
+                var configToken = _config["AppSettings:Token"]
+                    ?? throw new InvalidOperationException("Token não configurado.");
 
-        var userEmail = user.Email ?? "";
+                var claims = new List<Claim>
+                {
+                    new Claim(ClaimTypes.NameIdentifier, user.Id),
+                    new Claim(ClaimTypes.Email, user.Email ?? string.Empty),
+                    new Claim(ClaimTypes.GivenName, user.FirstName),
+                    new Claim(ClaimTypes.Surname, user.LastName)
+                };
 
-        List<Claim> claims = new List<Claim>()
-        {
-            new Claim("Email", userEmail),
-            new Claim("FirstName", user.FirstName),
-            new Claim("LastName", user.LastName)
-        };
+                var key = new SymmetricSecurityKey(
+                    Encoding.UTF8.GetBytes(configToken));
 
-        var configToken = _config.GetSection("AppSettings:Token").Value
-            ?? throw new InvalidOperationException("Token não configurado.");
+                var credentials = new SigningCredentials(
+                    key,
+                    SecurityAlgorithms.HmacSha512Signature);
 
-        var key = new SymmetricSecurityKey(System.Text.
-            Encoding.UTF8.GetBytes(configToken)
-        );
+                var token = new JwtSecurityToken(
+                    claims: claims,
+                    expires: DateTime.UtcNow.AddDays(1),
+                    signingCredentials: credentials);
 
-        var cred = new SigningCredentials(key, SecurityAlgorithms.HmacSha512Signature);
-
-        var token = new JwtSecurityToken(    
-            claims: claims,
-            expires: DateTime.Now.AddDays(1),
-            signingCredentials: cred
-        );
-
-        var jwt = new JwtSecurityTokenHandler().WriteToken(token);
-
-        return jwt;
-
-    }
-
-
-
+                return new JwtSecurityTokenHandler().WriteToken(token);
+            }
 
 }
-
