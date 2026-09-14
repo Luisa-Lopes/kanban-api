@@ -22,6 +22,8 @@ builder.Services.AddControllers();
 builder.Services.AddScoped<ProjectsService>();
 builder.Services.AddScoped<TokenServices>();
 builder.Services.AddScoped<ProjectMembersService>();
+builder.Services.AddScoped<ProjectSprintService>();
+builder.Services.AddScoped<ProjectTaskService>();
 builder.Services.AddScoped<ProjectInvitationsService>();
 
 
@@ -32,9 +34,11 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 
 builder.Services.AddEndpointsApiExplorer();
 
-builder.Services.AddSwaggerGen(options =>{
-    
-    options.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
+builder.Services.AddSwaggerGen(options =>
+{
+    const string schemeId = "Bearer";
+
+    options.AddSecurityDefinition(schemeId, new OpenApiSecurityScheme
     {
         Name = "Authorization",
         Type = SecuritySchemeType.Http,
@@ -44,7 +48,11 @@ builder.Services.AddSwaggerGen(options =>{
         Description = "Digite apenas o token JWT"
     });
 
-    options.OperationFilter<SecurityRequirementsOperationFilter>();
+    options.AddSecurityRequirement(document =>
+        new OpenApiSecurityRequirement
+        {
+            [new OpenApiSecuritySchemeReference(schemeId, document)] = []
+        });
 });
 
 builder.Services.AddCors(options =>

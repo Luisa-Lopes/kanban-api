@@ -184,6 +184,18 @@ public class ProjectMembersService
         }
     }
 
+    public async Task ValidateSprintTaskPermission(string userId, int projectId)
+    {
+        var member = await GetProjectMember(userId, projectId);
+
+        if (member.Role != ProjectRole.Owner &&
+            member.Role != ProjectRole.Admin &&
+            member.Role != ProjectRole.Member)
+        {
+            throw new ForbiddenException("Você não possui permissão para editar sprints e tarefas.");
+        }
+    }
+
      public async Task ThisProjectExist (int projectId)
     {
 

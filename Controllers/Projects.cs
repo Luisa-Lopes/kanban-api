@@ -83,8 +83,6 @@ public class ProjectsController: ControllerBase
         
         var userEmail = User.FindFirst(ClaimTypes.Email)?.Value;
 
-
-
         if(userEmail == null)
         {
             response.Dados = null;
