@@ -9,14 +9,15 @@ public class AgentService : IAgentService
 {
     private readonly Client _client;
     private readonly IConfiguration _configuration;
-    private readonly ProjectTools _projectTools;
+    private readonly AgentToolDispatcher _toolDispatcher;
 
-    public AgentService(Client client, IConfiguration configuration, ProjectTools projectTools)
+    public AgentService(Client client, IConfiguration configuration, AgentToolDispatcher toolDispatcher)
     {
         _client = client;
         _configuration = configuration;
-        _projectTools = projectTools;
+     _toolDispatcher = toolDispatcher;
     }
+    
 
      private FunctionDeclaration GetProjectsFunction()
     {
@@ -103,57 +104,65 @@ public class AgentService : IAgentService
         return response.Text ?? string.Empty;
     }
 
-    // Executa a função solicitada pelo Gemini
-    if (functionCall.Name == "get_projects")
-    {
-        var result = await _projectTools.GetProjects();
 
-        // Envia o resultado da função de volta para o Gemini
+    if (functionCall.Name != null)
+{
+   
+      var result = await _toolDispatcher.ExecuteAsync(
+        functionCall.Name
+    );
+
+
+            // Envia o resultado da função de volta para o Gemini
         var functionResponsePart = Part.FromFunctionResponse(
-            name: functionCall.Name,
-            response: new Dictionary<string, object>
+                name: functionCall.Name,
+                response: new Dictionary<string, object>
+                {
+                    ["result"] = result
+                }
+            );
+
+            var contents = new List<Content>
             {
-                ["result"] = result
-            }
-        );
+                new Content
+                {
+                    Role = "user",
+                    Parts =
+                    [
+                        new Part
+                        {
+                            Text = message
+                        }
+                    ]
+                },
 
-        var contents = new List<Content>
-        {
-            new Content
-            {
-                Role = "user",
-                Parts =
-                [
-                    new Part
-                    {
-                        Text = message
-                    }
-                ]
-            },
+                // Resposta anterior do Gemini contendo o FunctionCall
+                response.Candidates![0].Content!,
 
-            // Resposta anterior do Gemini contendo o FunctionCall
-            response.Candidates![0].Content!,
+                // Resultado da execução da nossa função
+                new Content
+                {
+                    Role = "user",
+                    Parts =
+                    [
+                        functionResponsePart
+                    ]
+                }
+            };
 
-            // Resultado da execução da nossa função
-            new Content
-            {
-                Role = "user",
-                Parts =
-                [
-                    functionResponsePart
-                ]
-            }
-        };
+            var finalResponse = await _client.Models.GenerateContentAsync(
+                model: "gemini-3.7-flash" ?? "gemini-3.6-flash",
+                contents: contents,
+                config: config
+            );
 
-        var finalResponse = await _client.Models.GenerateContentAsync(
-            model: "gemini-3.7-flash" ?? "gemini-3.6-flash",
-            contents: contents,
-            config: config
-        );
+            return finalResponse.Text ?? string.Empty;
 
-        return finalResponse.Text ?? string.Empty;
     }
 
     return response.Text ?? string.Empty;
+        
+
+   
     }
 }
