@@ -29,6 +29,8 @@ var agent = new Client(
 
 builder.Services.AddSingleton(agent);
 
+builder.Services.AddScoped<ProjectSprintTools>();
+builder.Services.AddScoped<ProjectMembersTools>();
 builder.Services.AddScoped<ProjectTools>();
 builder.Services.AddScoped<AgentToolDispatcher>();
 builder.Services.AddScoped<IAgentService, AgentService>();

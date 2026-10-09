@@ -15,8 +15,95 @@ public class AgentService : IAgentService
     {
         _client = client;
         _configuration = configuration;
-     _toolDispatcher = toolDispatcher;
+        _toolDispatcher = toolDispatcher;
     }
+
+     private FunctionDeclaration GetProjectSprintFunction()
+    {
+        return new FunctionDeclaration
+        {
+            Name = "get_project_sprint",
+            Parameters = new Schema
+            {
+                Type = Google.GenAI.Types.Type.Object,
+                Properties = new Dictionary<string, Schema>
+                {
+                    ["projectName"] = new Schema
+                    {
+                        Type = Google.GenAI.Types.Type.String,
+                        Description = "Nome do projeto cujas sprints serão consultadas." +
+                        "Exemplo: Biblioteca."
+                    }
+                },
+                Required = ["projectName"]
+            },
+
+            Description = """
+                Obtém a lista de sprint de um projeto ao qual o usuário
+                autenticado possui acesso.
+
+                 Utilize esta função quando o usuário perguntar sobre:
+                - As sprints de um projeto.
+                - O andamento ou progresso das sprints.
+                - O status das sprints.
+                - Os prazos das sprints.
+                - Quais sprints pertencem a um projeto.
+
+                Extraia o nome do projeto mencionado pelo usuário
+                e informe-o no parâmetro projectName.
+
+                Exemplo:
+                Pergunta: "Como andam as sprints do projeto Biblioteca?"
+                Argumento: projectName = "Biblioteca"
+
+                As sprints retornadas contêm informações internas,
+                como seus identificadores. Esses identificadores são
+                destinados ao uso interno do agente e não devem ser
+                exibidos ao usuário.
+                """
+        };
+    }
+
+      private FunctionDeclaration GetProjectsMembersFunction()
+    {
+        return new FunctionDeclaration
+        {
+            Name = "get_project_members",
+            Parameters = new Schema
+            {
+                Type = Google.GenAI.Types.Type.Object,
+                Properties = new Dictionary<string, Schema>
+                {
+                    ["projectName"] = new Schema
+                    {
+                        Type = Google.GenAI.Types.Type.String,
+                        Description = "Nome do projeto cujos membros serão consultadas."
+                    }
+                },
+                Required = ["projectName"]
+            },
+            Description = """
+                Obtém a lista de membros de um projeto específico ao qual o usuário
+                autenticado possui acesso.
+
+                Use esta função quando o usuário perguntar quais
+                membros possui em um dos seus projetos.
+
+                Extraia o nome do projeto mencionado pelo usuário
+                e informe-o no parâmetro projectName.
+
+                Exemplo:
+                Pergunta: "Quais sprints estão em andamento no projeto Biblioteca?"
+                Argumento: projectName = "Biblioteca"
+
+                Os membros retornados contêm informações internas,
+                como seus identificadores. Esses identificadores são
+                destinados ao uso interno do agente e não devem ser
+                exibidos ao usuário.
+                """
+        };
+    }
+
     
 
      private FunctionDeclaration GetProjectsFunction()
@@ -40,6 +127,7 @@ public class AgentService : IAgentService
         };
     }
 
+   
 
     public async Task<string> SendMessageAsync(string message)
     {
@@ -80,6 +168,19 @@ public class AgentService : IAgentService
                     [
                         GetProjectsFunction()
                     ]
+                },
+                new Tool
+                {
+                    FunctionDeclarations =
+                    [
+                        GetProjectsMembersFunction()
+                    ]
+                }, new Tool
+                {
+                    FunctionDeclarations =
+                    [
+                        GetProjectSprintFunction()
+                    ]
                 }
             ]
         };
@@ -109,7 +210,8 @@ public class AgentService : IAgentService
 {
    
       var result = await _toolDispatcher.ExecuteAsync(
-        functionCall.Name
+        functionCall.Name,
+        functionCall.Args
     );
 
 
@@ -151,7 +253,7 @@ public class AgentService : IAgentService
             };
 
             var finalResponse = await _client.Models.GenerateContentAsync(
-                model: "gemini-3.7-flash" ?? "gemini-3.6-flash",
+                model: "gemini-3.6-flash" ?? "gemini-3.6-flash",
                 contents: contents,
                 config: config
             );
