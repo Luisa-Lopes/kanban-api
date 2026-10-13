@@ -44,18 +44,50 @@ public class ProjectInvitationsService
         }
     }
 
-    public async Task<Response<ProjectInvitationResponse>> CreateProjectInvitation (ProjectInvitationsRequest request)
+    public async Task<Response<List<ProjectInvitationResponse>>> GetInvitations(
+        int projectId,
+        string userId)
+    {
+        await _projectsService.ThisProjectExist(projectId);
+        await _projectMemberService.ValidateMemberPermission(userId, projectId);
+
+        var invitations = await _dbContext.ProjectInvitation
+            .AsNoTracking()
+            .Where(invitation => invitation.ProjectId == projectId)
+            .OrderByDescending(invitation => invitation.CreatedAt)
+            .Select(invitation => new ProjectInvitationResponse
+            {
+                Id = invitation.Id,
+                ProjectId = invitation.ProjectId,
+                Email = invitation.Email,
+                Role = invitation.Role,
+                Status = invitation.Status,
+                InvitesBy = invitation.InvitesBy,
+                CreatedAt = invitation.CreatedAt
+            })
+            .ToListAsync();
+
+        return new Response<List<ProjectInvitationResponse>>
+        {
+            Dados = invitations,
+            Message = "Convites do projeto encontrados com sucesso.",
+            StatusCode = StatusCodes.Status200OK
+        };
+    }
+
+    public async Task<Response<ProjectInvitationResponse>> CreateProjectInvitation (ProjectInvitationsRequest request, string invitesBy)
     {
         Response<ProjectInvitationResponse> response = new ();
 
         try
         {
+            
 
             await _projectsService.ThisProjectExist(request.ProjectId);
 
             await InvitationExist(request.ProjectId, request.Email);
 
-            await _projectMemberService.ValidateMemberPermission(request.InvitesBy,request.ProjectId);
+            await _projectMemberService.ValidateMemberPermission(invitesBy,request.ProjectId);
 
 
             var projectInvitation = new ProjectInvitations
@@ -65,8 +97,8 @@ public class ProjectInvitationsService
                 Role = request.Role,
                 Token = Guid.NewGuid(),
                 Status = InvitationStatus.Pending,
-                InvitesBy = request.InvitesBy,
-                CreatedAt = DateTime.Now,
+                InvitesBy = invitesBy,
+                CreatedAt = DateTime.UtcNow,
             };
 
             _dbContext.ProjectInvitation.Add(projectInvitation);

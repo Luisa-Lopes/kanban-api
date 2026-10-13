@@ -15,5 +15,6 @@ public class ProjectSprintResponse
 
     public  DateTime EndDate { get; set; }
 
+    public List<ProjectTaskResponse> Tasks { get; set; } = [];
 
 }

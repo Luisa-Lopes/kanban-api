@@ -6,7 +6,6 @@ public class ProjectSprintRequest
 {
     public int id {get; set;}
 
-    public required int ProjectId { get; set; }
 
     public required string Title { get; set; }
 

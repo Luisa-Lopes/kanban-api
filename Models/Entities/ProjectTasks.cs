@@ -26,6 +26,8 @@ public class ProjectTasks
         [Column("status")]
         public required TaskStatus Status { get; set; } 
 
+        public string AssigneeId { get; set; } = string.Empty;
+
         //Criar relacionamento entre as tabelas
         public ProjectSprint ProjectSprint { get; set; } = null!;
 

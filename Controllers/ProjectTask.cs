@@ -8,7 +8,7 @@ using Service;
 namespace Function.Controllers;
 
 [ApiController]
-[Route("api/sprint/{sprintId}/tasks")]
+[Route("api/tasks")]
 public class ProjectTaskController : ControllerBase
 {
     private readonly ProjectTaskService _projectTaskService;
@@ -80,4 +80,20 @@ public class ProjectTaskController : ControllerBase
         var response = await _projectTaskService.DeleteProjectTask(sprintId, id, userId);
         return response.Status ? Ok(response) : StatusCode(response.StatusCode, response);
     }
+
+    [Authorize]
+    [HttpGet("user")]
+    public async Task<IActionResult> GetUserTasks()
+    {
+        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (userId == null)
+            return Unauthorized(new Response<ProjectUserTaskResponse> { Message = "Usuário não encontrado.", Status = false });
+
+        var response = await _projectTaskService.GetUserTasks(userId);
+        return response.Status ? Ok(response) : StatusCode(response.StatusCode, response);
+    }
+
+
+
+
 }

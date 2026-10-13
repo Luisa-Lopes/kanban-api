@@ -366,6 +366,10 @@ namespace kanban_api.Migrations
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
+                    b.Property<string>("AssigneeId")
+                        .IsRequired()
+                        .HasColumnType("text");
+
                     b.Property<string>("Description")
                         .IsRequired()
                         .HasColumnType("text")

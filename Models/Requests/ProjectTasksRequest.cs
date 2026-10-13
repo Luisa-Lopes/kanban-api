@@ -14,6 +14,6 @@ public class  ProjectTasksRequest
 
     public required TaskStatus Status { get; set; } 
 
-
+    public string AssigneeId { get; set; } = string.Empty;
 
 }

@@ -42,8 +42,10 @@ public class ProjectsController: ControllerBase
         }
 
 
-        List<ProjectsResponse> projects = await _projectsService.GetProjects(userId);
-        return Ok(projects);
+        response.Dados = await _projectsService.GetProjects(userId);
+        response.Message = "Projetos encontrados com sucesso!";
+    
+        return Ok(response);
     }
     #endregion
 
@@ -79,7 +81,7 @@ public class ProjectsController: ControllerBase
         ProjectsRequest request)
     {
 
-        Response<List<ProjectsResponse>> response = new();
+        Response<List<ProjectsResumedResponse>> response = new();
         
         var userEmail = User.FindFirst(ClaimTypes.Email)?.Value;
 
@@ -92,7 +94,7 @@ public class ProjectsController: ControllerBase
             return Unauthorized(response);
         } 
 
-        Response<ProjectsResponse> project = await _projectsService.CreateProject(request, userEmail);
+        Response<ProjectsResumedResponse> project = await _projectsService.CreateProject(request, userEmail);
 
         return new OkObjectResult(project);
     }

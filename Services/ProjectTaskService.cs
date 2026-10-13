@@ -65,7 +65,8 @@ public class ProjectTaskService
             ProjectSprintId = sprintId,
             Title = request.Title,
             Description = request.Description,
-            Status = request.Status
+            Status = request.Status,
+            AssigneeId = request.AssigneeId
         };
 
         _dbContext.ProjectTasks.Add(task);
@@ -92,6 +93,7 @@ public class ProjectTaskService
         task.Title = request.Title;
         task.Description = request.Description;
         task.Status = request.Status;
+        task.AssigneeId = request.AssigneeId;
 
         await _dbContext.SaveChangesAsync();
 
@@ -120,6 +122,39 @@ public class ProjectTaskService
         {
             Dados = true,
             Message = "Tarefa removida com sucesso."
+        };
+    }
+
+    public async Task<Response<List<ProjectUserTaskResponse>>> GetUserTasks(string userId)
+    {
+        
+        var task = await _dbContext.ProjectTasks
+        .Where(x => x.AssigneeId == userId)
+        .Include(s => s.ProjectSprint)
+        .ThenInclude(p =>  p.Project)
+        .ToListAsync();
+
+        if (task == null)
+            throw new NotFoundException("Tarefa não encontrada.");
+
+
+        var responseTask = task.Select(t => new ProjectUserTaskResponse
+        {
+            Id = t.Id,
+            ProjectSprintId = t.ProjectSprintId,
+            Title = t.Title,
+            Description = t.Description,
+            Status = t.Status,
+            AssigneeId = t.AssigneeId,
+            EndDate = t.ProjectSprint.EndDate,
+            ProjectName = t.ProjectSprint.Project.Name,
+            ProjectId = t.ProjectSprint.Project.Id,   
+        });
+
+        return new Response<List<ProjectUserTaskResponse>>
+        {
+            Dados = responseTask.ToList(),
+            Message = "Tarefa encontrada com sucesso."
         };
     }
 

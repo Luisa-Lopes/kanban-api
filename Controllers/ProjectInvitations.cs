@@ -42,9 +42,9 @@ public class ProjectInvitationsController: ControllerBase
             return Unauthorized(response);
         }
 
-        var projectInvitation = await _projectInvitationsService.CreateProjectInvitation(request);
+        var projectInvitation = await _projectInvitationsService.CreateProjectInvitation(request, userId);
 
-        return Ok( projectInvitation);
+         return projectInvitation.Status ? Ok(projectInvitation) : StatusCode(response.StatusCode,projectInvitation);
     }
     #endregion
 

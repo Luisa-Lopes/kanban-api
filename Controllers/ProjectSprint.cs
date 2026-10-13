@@ -8,7 +8,7 @@ using Service;
 namespace Function.Controllers;
 
 [ApiController]
-[Route("api/project/{projectId}/sprints")]
+[Route("api/sprints")]
 public class ProjectSprintController : ControllerBase
 {
     private readonly ProjectSprintService _projectSprintService;
@@ -19,31 +19,7 @@ public class ProjectSprintController : ControllerBase
     }
 
     [Authorize]
-    [HttpGet]
-    public async Task<IActionResult> GetProjectSprints(int projectId)
-    {
-        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
-        if (userId == null)
-            return Unauthorized(new Response<List<ProjectSprintResponse>> { Message = "Usuário não encontrado.", Status = false });
-
-        var response = await _projectSprintService.GetProjectSprints(projectId, userId);
-        return response.Status ? Ok(response) : StatusCode(response.StatusCode, response);
-    }
-
-    [Authorize]
-    [HttpGet("{id}")]
-    public async Task<IActionResult> GetProjectSprint(int projectId, int id)
-    {
-        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
-        if (userId == null)
-            return Unauthorized(new Response<ProjectSprintResponse> { Message = "Usuário não encontrado.", Status = false });
-
-        var response = await _projectSprintService.GetProjectSprint(projectId, id, userId);
-        return response.Status ? Ok(response) : StatusCode(response.StatusCode, response);
-    }
-
-    [Authorize]
-    [HttpPost]
+    [HttpPost("{projectId}")]
     public async Task<IActionResult> CreateProjectSprint(int projectId, ProjectSprintRequest request)
     {
         var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
@@ -55,7 +31,7 @@ public class ProjectSprintController : ControllerBase
     }
 
     [Authorize]
-    [HttpPut("{id}")]
+    [HttpPut("{projectId}/{id}")]
     public async Task<IActionResult> UpdateProjectSprint(int projectId, int id, ProjectSprintRequest request)
     {
         if (request.id != 0 && request.id != id)
@@ -70,7 +46,7 @@ public class ProjectSprintController : ControllerBase
     }
 
     [Authorize]
-    [HttpDelete("{id}")]
+    [HttpDelete("{projectId}/{id}")]
     public async Task<IActionResult> DeleteProjectSprint(int projectId, int id)
     {
         var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);

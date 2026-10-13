@@ -28,8 +28,8 @@ public class ProjectsService
 
     public async Task<List<ProjectsResponse>> GetProjects(string memberId)
     {
+
         return await _dbContext.Projects
-            .Include(f => f.Members)
             .Where(p => p.Members.Any(m => m.UserId == memberId))
             .Select(r => new ProjectsResponse
             {
@@ -38,7 +38,27 @@ public class ProjectsService
                 Description = r.Description,
                 StartDate = r.StartDate,
                 EstimatedDate = r.EstimatedDate,
-                EndDate = r.EndDate
+                EndDate = r.EndDate,
+                progress = r.Sprints.SelectMany(s => s.Tasks).Count() == 0
+                    ? 0
+                    : (int)Math.Round(
+                        (double)r.Sprints.SelectMany(s => s.Tasks)
+                            .Count(t => t.Status == TaskStatus.Done)
+                        / r.Sprints.SelectMany(s => s.Tasks).Count() * 100),
+                status = r.Sprints.Any(s => s.EndDate < DateTime.UtcNow && s.Tasks.Any(t => t.Status != TaskStatus.Done))
+                    ? ProjectStatus.InProgress
+                    : r.Sprints.All(s => s.Tasks.All(t => t.Status == TaskStatus.Done))
+                        ? ProjectStatus.Completed
+                        : ProjectStatus.NotStarted,
+                Tasks = r.Sprints.SelectMany(s => s.Tasks).Where(t => t.AssigneeId == memberId).Select(t => new ProjectTaskResponse
+                {
+                    Id = t.Id,
+                    ProjectSprintId = t.ProjectSprintId,
+                    Title = t.Title,
+                    Description = t.Description,
+                    Status = t.Status
+                }).ToList()
+
             })
             .ToListAsync();
     }
@@ -48,19 +68,26 @@ public class ProjectsService
          Response<ProjectResponse> response = new();
         try
         {
-             response.Dados =  await _dbContext.Projects
+            var metrics = new ProjectMetricsResponse();
+
+            var project = await _dbContext.Projects
                 .Include(f => f.Members)
                 .ThenInclude(pm => pm.User)
-                .Where(p => p.Id == projectId)
-                .Select(r => new ProjectResponse
+                .Include(p => p.Sprints)
+                .ThenInclude(s => s.Tasks)
+                .FirstOrDefaultAsync(p => p.Id == projectId);
+
+            if (project != null)
+            {
+                response.Dados = new ProjectResponse
                 {
-                    id = r.Id,
-                    Name = r.Name,
-                    Description = r.Description,
-                    StartDate = r.StartDate,
-                    EstimatedDate = r.EstimatedDate,
-                    EndDate = r.EndDate,
-                    Members = r.Members.Select(m => new ProjectMembersResponse
+                    id = project.Id,
+                    Name = project.Name,
+                    Description = project.Description,
+                    StartDate = project.StartDate,
+                    EstimatedDate = project.EstimatedDate,
+                    EndDate = project.EndDate,
+                    Members = project.Members.Select(m => new ProjectMembersResponse
                     {
                         Id = m.Id,
                         ProjectId = m.ProjectId,
@@ -73,9 +100,46 @@ public class ProjectsService
                         },
                         JoinedAt = m.JoinedAt,
                         Role = m.Role
-                    }).ToList()
-            }).FirstOrDefaultAsync();
+                    }).ToList(),
+                    Sprints = project.Sprints.Select(s =>
+                    {
+                        if (s.StartDate < DateTime.Now && s.EndDate < DateTime.Now &&
+                            s.Tasks.Any(t => t.Status != TaskStatus.Done))
+                        {
+                            metrics.overdueTasks++;
+                        }
 
+                        return new ProjectSprintResponse
+                        {
+                            id = s.Id,
+                            ProjectId = s.ProjectId,
+                            Title = s.Title,
+                            Description = s.Description,
+                            StartDate = s.StartDate,
+                            EndDate = s.EndDate,
+                            Tasks = s.Tasks.Select(t =>
+                            {
+                                metrics.totalTasks++;
+                                if (t.Status == TaskStatus.Done)
+                                    metrics.completedTasks++;
+                                else if (t.Status == TaskStatus.InProgress)
+                                    metrics.inProgressTasks++;
+
+                                return new ProjectTaskResponse
+                                {
+                                    Id = t.Id,
+                                    ProjectSprintId = t.ProjectSprintId,
+                                    Title = t.Title,
+                                    Description = t.Description,
+                                    Status = t.Status,
+                                    AssigneeId = t.AssigneeId
+                                };
+                            }).ToList()
+                        };
+                    }).ToList(),
+                    Metrics = metrics
+                };
+            }
             return response;   
 
         }
@@ -90,11 +154,11 @@ public class ProjectsService
        
     }
 
-    public async Task<Response<ProjectsResponse>> CreateProject(
+    public async Task<Response<ProjectsResumedResponse>> CreateProject(
         ProjectsRequest request, string userEmail)
     {
 
-        Response<ProjectsResponse> response = new();
+        Response<ProjectsResumedResponse> response = new();
 
         try
         {
@@ -122,7 +186,7 @@ public class ProjectsService
                await _projectsMembersService.CreateProjectOwner(projectMember);
 
 
-                response.Dados =  new ProjectsResponse
+                response.Dados =  new ProjectsResumedResponse
                 {
                     id = project.Id,
                     Name = project.Name,
@@ -145,10 +209,10 @@ public class ProjectsService
         }
     }
 
-    public async Task<Response<ProjectsResponse>> UpdateProject(int id, ProjectsRequest request, string userId)
+    public async Task<Response<ProjectsResumedResponse>> UpdateProject(int id, ProjectsRequest request, string userId)
     {
        
-        Response<ProjectsResponse> response = new ();
+        Response<ProjectsResumedResponse> response = new ();
 
         var project = await _dbContext.Projects.FindAsync(id);
 
@@ -171,7 +235,7 @@ public class ProjectsService
         await _dbContext.SaveChangesAsync();
 
         response.Message ="Projeto Editado com Sucesso!";
-        response.Dados =  new ProjectsResponse
+        response.Dados =  new ProjectsResumedResponse
         {
             id = project.Id,
             Name = project.Name,

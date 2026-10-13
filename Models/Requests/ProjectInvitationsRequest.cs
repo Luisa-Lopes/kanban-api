@@ -12,6 +12,5 @@ public class ProjectInvitationsRequest
 
     public required ProjectRole Role { get; set; }
 
-    public required string InvitesBy { get; set; }
 
 }
