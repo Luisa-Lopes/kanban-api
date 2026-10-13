@@ -14,9 +14,14 @@ public class AgentController : ControllerBase
     }
 
     [HttpPost("chat")]
-    public async Task<IActionResult> Chat([FromBody] string message)
+    public async Task<IActionResult> Chat([FromBody] ChatRequest request)
     {
-        var response = await _agentService.SendMessageAsync(message);
+         if (string.IsNullOrWhiteSpace(request.Message))
+        {
+            return BadRequest("A mensagem não pode ser vazia.");
+        }
+
+        var response = await _agentService.SendMessageAsync(request.Message);
 
         return Ok(response);
     }
