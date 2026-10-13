@@ -1,0 +1,270 @@
+
+using AgentTools;
+using Google.GenAI;
+using Google.GenAI.Types;
+
+namespace Service;
+
+public class AgentService : IAgentService
+{
+    private readonly Client _client;
+    private readonly IConfiguration _configuration;
+    private readonly AgentToolDispatcher _toolDispatcher;
+
+    public AgentService(Client client, IConfiguration configuration, AgentToolDispatcher toolDispatcher)
+    {
+        _client = client;
+        _configuration = configuration;
+        _toolDispatcher = toolDispatcher;
+    }
+
+     private FunctionDeclaration GetProjectSprintFunction()
+    {
+        return new FunctionDeclaration
+        {
+            Name = "get_project_sprint",
+            Parameters = new Schema
+            {
+                Type = Google.GenAI.Types.Type.Object,
+                Properties = new Dictionary<string, Schema>
+                {
+                    ["projectName"] = new Schema
+                    {
+                        Type = Google.GenAI.Types.Type.String,
+                        Description = "Nome do projeto cujas sprints serão consultadas." +
+                        "Exemplo: Biblioteca."
+                    }
+                },
+                Required = ["projectName"]
+            },
+
+            Description = """
+                Obtém a lista de sprint de um projeto ao qual o usuário
+                autenticado possui acesso.
+
+                 Utilize esta função quando o usuário perguntar sobre:
+                - As sprints de um projeto.
+                - O andamento ou progresso das sprints.
+                - O status das sprints.
+                - Os prazos das sprints.
+                - Quais sprints pertencem a um projeto.
+
+                Extraia o nome do projeto mencionado pelo usuário
+                e informe-o no parâmetro projectName.
+
+                Exemplo:
+                Pergunta: "Como andam as sprints do projeto Biblioteca?"
+                Argumento: projectName = "Biblioteca"
+
+                As sprints retornadas contêm informações internas,
+                como seus identificadores. Esses identificadores são
+                destinados ao uso interno do agente e não devem ser
+                exibidos ao usuário.
+                """
+        };
+    }
+
+      private FunctionDeclaration GetProjectsMembersFunction()
+    {
+        return new FunctionDeclaration
+        {
+            Name = "get_project_members",
+            Parameters = new Schema
+            {
+                Type = Google.GenAI.Types.Type.Object,
+                Properties = new Dictionary<string, Schema>
+                {
+                    ["projectName"] = new Schema
+                    {
+                        Type = Google.GenAI.Types.Type.String,
+                        Description = "Nome do projeto cujos membros serão consultadas."
+                    }
+                },
+                Required = ["projectName"]
+            },
+            Description = """
+                Obtém a lista de membros de um projeto específico ao qual o usuário
+                autenticado possui acesso.
+
+                Use esta função quando o usuário perguntar quais
+                membros possui em um dos seus projetos.
+
+                Extraia o nome do projeto mencionado pelo usuário
+                e informe-o no parâmetro projectName.
+
+                Exemplo:
+                Pergunta: "Quais sprints estão em andamento no projeto Biblioteca?"
+                Argumento: projectName = "Biblioteca"
+
+                Os membros retornados contêm informações internas,
+                como seus identificadores. Esses identificadores são
+                destinados ao uso interno do agente e não devem ser
+                exibidos ao usuário.
+                """
+        };
+    }
+
+    
+
+     private FunctionDeclaration GetProjectsFunction()
+    {
+        return new FunctionDeclaration
+        {
+            Name = "get_projects",
+
+            Description = """
+                Obtém a lista de projetos aos quais o usuário
+                autenticado possui acesso.
+
+                Use esta função quando o usuário perguntar quais
+                projetos possui ou quiser consultar seus projetos.
+
+                 Os projetos retornados contêm informações internas,
+                como seus identificadores. Esses identificadores são
+                destinados ao uso interno do agente e não devem ser
+                exibidos ao usuário.
+                """
+        };
+    }
+
+   
+
+    public async Task<string> SendMessageAsync(string message)
+    {
+
+        GenerateContentConfig config = new (){
+                SystemInstruction = new Content
+                {
+                Parts =
+                [
+                    new Part
+                    {
+                        Text = """
+                            Você é o Managerzinho, um agente de inteligência
+                            artificial integrado a um sistema de gerenciamento
+                            de projetos desenvolvido em .NET.
+
+                            Sua função é auxiliar os usuários no gerenciamento
+                            de projetos, sprints e tarefas.
+
+                            Responda sempre em português do Brasil.
+                            Seja claro, objetivo e profissional.
+
+                             Utilize as ferramentas disponíveis quando precisar
+                             consultar informações reais do sistema.
+
+                             Ao apresentar informações ao usuário:
+                                - Não exiba IDs internos.
+                                - Não revele informações técnicas internas desnecessárias.
+                        """
+                    }
+                ]
+            },
+            Tools =
+            [
+                new Tool
+                {
+                    FunctionDeclarations =
+                    [
+                        GetProjectsFunction()
+                    ]
+                },
+                new Tool
+                {
+                    FunctionDeclarations =
+                    [
+                        GetProjectsMembersFunction()
+                    ]
+                }, new Tool
+                {
+                    FunctionDeclarations =
+                    [
+                        GetProjectSprintFunction()
+                    ]
+                }
+            ]
+        };
+
+        var response = await _client.Models.GenerateContentAsync(
+            model: _configuration["Gemini:Model"] ?? "gemini-3.6-flash",
+            contents: message,
+            config: config
+        );
+
+       // Verifica se o Gemini pediu para executar alguma função
+    var functionCall = response
+        .Candidates?
+        .FirstOrDefault()?
+        .Content?
+        .Parts?
+        .FirstOrDefault(p => p.FunctionCall != null)?
+        .FunctionCall;
+
+    if (functionCall == null)
+    {
+        return response.Text ?? string.Empty;
+    }
+
+
+    if (functionCall.Name != null)
+{
+   
+      var result = await _toolDispatcher.ExecuteAsync(
+        functionCall.Name,
+        functionCall.Args
+    );
+
+
+            // Envia o resultado da função de volta para o Gemini
+        var functionResponsePart = Part.FromFunctionResponse(
+                name: functionCall.Name,
+                response: new Dictionary<string, object>
+                {
+                    ["result"] = result
+                }
+            );
+
+            var contents = new List<Content>
+            {
+                new Content
+                {
+                    Role = "user",
+                    Parts =
+                    [
+                        new Part
+                        {
+                            Text = message
+                        }
+                    ]
+                },
+
+                // Resposta anterior do Gemini contendo o FunctionCall
+                response.Candidates![0].Content!,
+
+                // Resultado da execução da nossa função
+                new Content
+                {
+                    Role = "user",
+                    Parts =
+                    [
+                        functionResponsePart
+                    ]
+                }
+            };
+
+            var finalResponse = await _client.Models.GenerateContentAsync(
+                model: "gemini-3.6-flash" ?? "gemini-3.6-flash",
+                contents: contents,
+                config: config
+            );
+
+            return finalResponse.Text ?? string.Empty;
+
+    }
+
+    return response.Text ?? string.Empty;
+        
+
+   
+    }
+}

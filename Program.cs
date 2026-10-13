@@ -5,18 +5,36 @@ using ProjectManager.Data;
 using Service;
 using Tables.Models;
 using Microsoft.OpenApi;
-using Swashbuckle.AspNetCore.Filters;
+
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
 
+using Google.GenAI;
+using AgentTools;
+
+
 var builder = WebApplication.CreateBuilder(args);
 
-// OpenAPI
+// OpenAPI para swagger
 builder.Services.AddOpenApi();
 
 // Controllers
 builder.Services.AddControllers();
+
+var agent = new Client(
+    apiKey: builder.Configuration["Gemini:ApiKey"]!
+);
+
+
+builder.Services.AddSingleton(agent);
+
+builder.Services.AddScoped<ProjectSprintTools>();
+builder.Services.AddScoped<ProjectMembersTools>();
+builder.Services.AddScoped<ProjectTools>();
+builder.Services.AddScoped<AgentToolDispatcher>();
+builder.Services.AddScoped<IAgentService, AgentService>();
+builder.Services.AddHttpContextAccessor();
 
 
 builder.Services.AddScoped<ProjectsService>();
