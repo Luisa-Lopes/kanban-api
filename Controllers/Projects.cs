@@ -69,7 +69,7 @@ public class ProjectsController: ControllerBase
         }
 
 
-        Response<ProjectResponse> projects = await _projectsService.GetProject(projectId);
+        Response<ProjectResponse> projects = await _projectsService.GetProject(projectId, userId);
         return Ok(projects);
     }
     #endregion

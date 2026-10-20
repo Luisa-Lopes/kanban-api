@@ -72,6 +72,8 @@ public class ProjectResponse
 
     public List<ProjectSprintResponse> Sprints { get; set; } = [];
 
+    public List<ProjectInvitationResponse> Invitations { get; set; } = [];
+
     public ProjectMetricsResponse Metrics { get; set; } = new();
 
 

@@ -18,10 +18,13 @@ public class ProjectsService
 
     private readonly ProjectMembersService _projectsMembersService;
 
-    public ProjectsService (AppDbContext dbContext,ProjectMembersService projectsMembersService)
+    private readonly ProjectInvitationsService _projectInvitationsService;
+
+    public ProjectsService (AppDbContext dbContext,ProjectMembersService projectsMembersService, ProjectInvitationsService projectInvitationsService)
     {
          _dbContext = dbContext;
          _projectsMembersService = projectsMembersService;
+         _projectInvitationsService = projectInvitationsService;
         
     }
 
@@ -63,7 +66,7 @@ public class ProjectsService
             .ToListAsync();
     }
 
-    public async Task<Response<ProjectResponse>> GetProject(int projectId)
+    public async Task<Response<ProjectResponse>> GetProject(int projectId, string userId)
     {
          Response<ProjectResponse> response = new();
         try
@@ -79,6 +82,11 @@ public class ProjectsService
 
             if (project != null)
             {
+                var member = project.Members.FirstOrDefault(m => m.UserId == userId);
+                var invitations = member?.Role == ProjectRole.Owner || member?.Role == ProjectRole.Admin
+                    ? await _projectInvitationsService.GetInvitations(projectId, userId)
+                    : null;
+
                 response.Dados = new ProjectResponse
                 {
                     id = project.Id,
@@ -137,6 +145,7 @@ public class ProjectsService
                             }).ToList()
                         };
                     }).ToList(),
+                    Invitations = invitations?.Dados ?? [],
                     Metrics = metrics
                 };
             }

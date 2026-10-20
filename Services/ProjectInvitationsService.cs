@@ -16,14 +16,11 @@ public class ProjectInvitationsService
 
     private readonly AppDbContext _dbContext;
 
-    private readonly ProjectsService _projectsService;
-
     private readonly ProjectMembersService _projectMemberService;
 
-    public ProjectInvitationsService (AppDbContext dbContext, ProjectsService projectService, ProjectMembersService projectMembersService)
+    public ProjectInvitationsService (AppDbContext dbContext, ProjectMembersService projectMembersService)
     {
          _dbContext = dbContext;
-        _projectsService = projectService;
         _projectMemberService = projectMembersService;
     }
 
@@ -48,7 +45,7 @@ public class ProjectInvitationsService
         int projectId,
         string userId)
     {
-        await _projectsService.ThisProjectExist(projectId);
+        await _projectMemberService.ThisProjectExist(projectId);
         await _projectMemberService.ValidateMemberPermission(userId, projectId);
 
         var invitations = await _dbContext.ProjectInvitation
@@ -83,7 +80,7 @@ public class ProjectInvitationsService
         {
             
 
-            await _projectsService.ThisProjectExist(request.ProjectId);
+            await _projectMemberService.ThisProjectExist(request.ProjectId);
 
             await InvitationExist(request.ProjectId, request.Email);
 
