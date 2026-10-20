@@ -43,6 +43,7 @@ builder.Services.AddScoped<ProjectMembersService>();
 builder.Services.AddScoped<ProjectSprintService>();
 builder.Services.AddScoped<ProjectTaskService>();
 builder.Services.AddScoped<ProjectInvitationsService>();
+builder.Services.AddScoped<NotificationsService>();
 
 
 // Banco de dados
