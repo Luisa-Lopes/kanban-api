@@ -3,6 +3,7 @@ using Microsoft.CodeAnalysis;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.ChangeTracking;
 using ProjectManager.Data;
+using ProjectManager.Exceptions;
 using Request.Models;
 using Response.Models;
 using Tables.Models;
@@ -128,6 +129,64 @@ public class ProjectInvitationsService
 
             return response;   
         }
+    }
+
+    public async Task<Response<ProjectInvitationResponse>> RespondToInvitation(
+        int invitationId,
+        string userId,
+        string userEmail,
+        InvitationStatus status)
+    {
+        var invitation = await _dbContext.ProjectInvitation
+            .FirstOrDefaultAsync(x => x.Id == invitationId);
+
+        if (invitation == null)
+            throw new NotFoundException("Convite não encontrado.");
+
+        if (!string.Equals(invitation.Email, userEmail, StringComparison.OrdinalIgnoreCase))
+            throw new ForbiddenException("Este convite foi enviado para outro usuário.");
+
+        if (invitation.Status != InvitationStatus.Pending)
+            throw new ConflictException("Este convite já foi respondido ou não está mais pendente.");
+
+        if (status == InvitationStatus.Accepted)
+        {
+            var alreadyMember = await _dbContext.ProjectMembers
+                .AnyAsync(x => x.ProjectId == invitation.ProjectId && x.UserId == userId);
+
+            if (alreadyMember)
+                throw new ConflictException("O usuário já participa deste projeto.");
+
+            _dbContext.ProjectMembers.Add(new ProjectMembers
+            {
+                ProjectId = invitation.ProjectId,
+                UserId = userId,
+                InvitationSent = invitation.CreatedAt,
+                JoinedAt = DateTime.UtcNow,
+                Role = invitation.Role
+            });
+        }
+
+        invitation.Status = status;
+        await _dbContext.SaveChangesAsync();
+
+        return new Response<ProjectInvitationResponse>
+        {
+            Dados = new ProjectInvitationResponse
+            {
+                Id = invitation.Id,
+                ProjectId = invitation.ProjectId,
+                Email = invitation.Email,
+                Role = invitation.Role,
+                Status = invitation.Status,
+                InvitesBy = invitation.InvitesBy,
+                CreatedAt = invitation.CreatedAt
+            },
+            Message = status == InvitationStatus.Accepted
+                ? "Convite aceito com sucesso."
+                : "Convite recusado com sucesso.",
+            StatusCode = StatusCodes.Status200OK
+        };
     }
 
 }

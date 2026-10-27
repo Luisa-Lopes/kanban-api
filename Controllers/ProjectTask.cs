@@ -20,7 +20,7 @@ public class ProjectTaskController : ControllerBase
 
     [Authorize]
     [HttpGet]
-    public async Task<IActionResult> GetProjectTasks(int sprintId)
+    public async Task<IActionResult> GetProjectTasks([FromQuery] int sprintId)
     {
         var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
         if (userId == null)
@@ -32,7 +32,9 @@ public class ProjectTaskController : ControllerBase
 
     [Authorize]
     [HttpGet("{id}")]
-    public async Task<IActionResult> GetProjectTask(int sprintId, int id)
+    public async Task<IActionResult> GetProjectTask(
+        [FromQuery] int sprintId,
+        [FromRoute] int id)
     {
         var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
         if (userId == null)
@@ -44,7 +46,9 @@ public class ProjectTaskController : ControllerBase
 
     [Authorize]
     [HttpPost]
-    public async Task<IActionResult> CreateProjectTask(int sprintId, ProjectTasksRequest request)
+    public async Task<IActionResult> CreateProjectTask(
+        [FromQuery] int sprintId,
+        [FromBody] ProjectTasksRequest request)
     {
         var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
         if (userId == null)
@@ -56,7 +60,10 @@ public class ProjectTaskController : ControllerBase
 
     [Authorize]
     [HttpPut("{id}")]
-    public async Task<IActionResult> UpdateProjectTask(int sprintId, int id, ProjectTasksRequest request)
+    public async Task<IActionResult> UpdateProjectTask(
+        [FromQuery] int sprintId,
+        [FromRoute] int id,
+        [FromBody] ProjectTasksRequest request)
     {
         if (request.Id != 0 && request.Id != id)
             return BadRequest("O id do corpo deve corresponder ao id da rota.");
@@ -71,7 +78,9 @@ public class ProjectTaskController : ControllerBase
 
     [Authorize]
     [HttpDelete("{id}")]
-    public async Task<IActionResult> DeleteProjectTask(int sprintId, int id)
+    public async Task<IActionResult> DeleteProjectTask(
+        [FromQuery] int sprintId,
+        [FromRoute] int id)
     {
         var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
         if (userId == null)
@@ -87,13 +96,10 @@ public class ProjectTaskController : ControllerBase
     {
         var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
         if (userId == null)
-            return Unauthorized(new Response<ProjectUserTaskResponse> { Message = "Usuário não encontrado.", Status = false });
+            return Unauthorized(new Response<List<ProjectUserTaskResponse>> { Message = "Usuário não encontrado.", Status = false });
 
         var response = await _projectTaskService.GetUserTasks(userId);
         return response.Status ? Ok(response) : StatusCode(response.StatusCode, response);
     }
-
-
-
-
 }
+
